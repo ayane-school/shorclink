@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"shorclick/handlers"
 	"shorclick/models"
@@ -16,18 +17,19 @@ import (
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Println("環境変数読み込まれんらしいよ...")
+		log.Println("Error loading .env file, proceeding with environment variables")
 	}
+	original_link := os.Getenv("ORIGINAL_LINK")
+	// DB接続の初期化
 	dbUser := os.Getenv("POSTGRES_USER")
 	dbPassword := os.Getenv("POSTGRES_PASSWORD")
 	dbName := os.Getenv("POSTGRES_DB")
-	dbHost := os.Getenv("POSTGRES_HOST") // または環境変数から取得
-	dbPort := "5432"      // または環境変数から取得
-	log.Println("Connecting to database with user:", dbUser, "and db name:", dbName)
+	dbHost := os.Getenv("POSTGRES_HOST")
+	dbPort := "5432"
+	log.Println("Connecting to database")
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", dbHost, dbUser, dbPassword, dbName, dbPort)
-	log.Println("DSN:", dsn)
 
-	// DB接続の初期化
+	
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalln("Failed to connect to database:", err)
@@ -45,9 +47,7 @@ func main() {
 	r:= gin.Default()
 	log.Println("Starting server on :8080")
 	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "welcome to shorclick",
-		})
+		c.Redirect(http.StatusMovedPermanently, original_link)
 	})
 	r.GET("/api", func(c *gin.Context) {
 		c.JSON(200, gin.H{
