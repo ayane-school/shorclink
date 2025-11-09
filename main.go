@@ -9,6 +9,7 @@ import (
 	"shorclick/handlers"
 	"shorclick/models"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -30,7 +31,6 @@ func main() {
 	log.Println("Connecting to database")
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", dbHost, dbUser, dbPassword, dbName, dbPort)
 
-	
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalln("Failed to connect to database:", err)
@@ -47,7 +47,12 @@ func main() {
 	// Ginのセットアップ
 	r:= gin.Default()
 	log.Println("Starting server on :8080")
-
+	r.Use(cors.New(cors.Config{
+    		AllowOrigins:     []string{"*"},
+    		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+    		AllowHeaders:     []string{"Origin", "Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization"},
+    		AllowCredentials: true,
+  	}))
 	r.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, original_link)
 	})
