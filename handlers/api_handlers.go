@@ -32,10 +32,6 @@ func GetShortLinks(db *gorm.DB) gin.HandlerFunc {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to retrieve ShortLinks"})
             return
         }
-        if len(ShortLinks) == 0 {
-            c.JSON(http.StatusNotFound, gin.H{"error": "No ShortLinks found"})
-            return
-        }
         c.JSON(http.StatusOK, ShortLinks)
     }
 }
@@ -46,8 +42,12 @@ func GetShortLink(db *gorm.DB) gin.HandlerFunc {
         id := c.Param("id")
 
         if err := db.First(&ShortLink, id).Error; err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "ShortLink not found"})
-        return
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusNotFound, gin.H{"error": "ShortLink not found"})
+			} else {
+				c.JSON(http.StatusNotFound, gin.H{"error": "ShortLink not found"})
+			}
+			return
         }
 
         c.JSON(http.StatusOK, ShortLink)
@@ -57,6 +57,16 @@ func GetShortLink(db *gorm.DB) gin.HandlerFunc {
 func PostShortLink(db *gorm.DB) gin.HandlerFunc {
     return func(c *gin.Context) {
         var req models.ShortLink
+        Short_codeInterface, exists := c.Get("short_code")
+        Short_code, ok := Short_codeInterface.(string)
+		if !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Short code not found in context"})
+			return
+		}
+        if !ok {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Short code is not a valid string"})
+            return
+        }
 		if err := c.ShouldBindJSON(&req); err != nil {
             c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
             return
@@ -69,7 +79,7 @@ func PostShortLink(db *gorm.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "URL must start with http:// or https://"})
 			return
 		}
-
+		req.ShortCode = Short_code
         if err := db.Create(&req).Error; err != nil {
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create ShortLink"})
             return
@@ -81,10 +91,25 @@ func PostShortLink(db *gorm.DB) gin.HandlerFunc {
 func PutShortLink(db *gorm.DB) gin.HandlerFunc {
     return func(c *gin.Context) {
         var ShortLink models.ShortLink
+		Short_codeInterface, exists := c.Get("short_code")
+        Short_code, ok := Short_codeInterface.(string)
+		if !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Short code not found in context"})
+			return
+		}
+        if !ok {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Short code is not a valid string"})
+            return
+        }
+
         id := c.Param("id")
 
-        if err := db.First(&ShortLink, id).Error; err != nil {
-            c.JSON(http.StatusNotFound, gin.H{"error": "ShortLink not found"})
+        if err := db.First(&ShortLink, id).Error; err != nil {			
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusNotFound, gin.H{"error": "ShortLink not found"})
+			} else {
+				c.JSON(http.StatusNotFound, gin.H{"error": "ShortLink not found"})
+			}
             return
         }
 
@@ -92,8 +117,21 @@ func PutShortLink(db *gorm.DB) gin.HandlerFunc {
             c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
             return
         }
-
-        db.Save(&ShortLink)
+		
+        if ShortLink.URL == "" {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "URL is required"})
+            return
+        }
+        
+        if !strings.HasPrefix(ShortLink.URL, "http://") && !strings.HasPrefix(ShortLink.URL, "https://") {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "URL must start with http:// or https://"})
+            return
+        }
+		ShortLink.ShortCode = Short_code
+        if err := db.Save(&ShortLink).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update ShortLink"})
+			return
+		}
         c.JSON(http.StatusOK, ShortLink)
     }
 }
@@ -105,11 +143,18 @@ func DeleteShortLink(db *gorm.DB) gin.HandlerFunc {
         id := c.Param("id")
 
         if err := db.First(&ShortLink, id).Error; err != nil {
-            c.JSON(http.StatusNotFound, gin.H{"error": "ShortLink not found"})
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusNotFound, gin.H{"error": "ShortLink not found"})
+			} else {
+				c.JSON(http.StatusNotFound, gin.H{"error": "ShortLink not found"})
+			}
             return
         }
 
-        db.Delete(&ShortLink)
-        c.JSON(http.StatusOK, ShortLink)
+        if err := db.Delete(&ShortLink).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete ShortLink"})
+			return
+		}
+        c.JSON(http.StatusOK, gin.H{"message": "ShortLink deleted successfully"})
     }
 }

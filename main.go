@@ -52,14 +52,15 @@ func main() {
 		c.Redirect(http.StatusMovedPermanently, original_link)
 	})
 
-  	r.GET("/api", handlers.RequireAPIToken(), handlers.GetShortLinks(db))
-  	r.GET("/api/:id", handlers.RequireAPIToken(), handlers.GetShortLink(db))
-
-  	r.POST("/api", handlers.RequireAPIToken(), handlers.PostShortLink(db))
-
-  	r.PUT("/api/:id", handlers.RequireAPIToken(), handlers.PutShortLink(db))
-
-  	r.DELETE("/api/:id", handlers.RequireAPIToken(), handlers.DeleteShortLink(db))
+	api := r.Group("/api")
+	api.Use(handlers.RequireAPIToken())
+	{
+		api.GET("/", handlers.GetShortLinks(db))
+		api.GET("/:id", handlers.GetShortLink(db))
+		api.POST("/", handlers.SetShortCode(), handlers.PostShortLink(db))
+		api.PUT("/:id", handlers.SetShortCode(), handlers.PutShortLink(db))
+		api.DELETE("/:id",  handlers.DeleteShortLink(db))
+	}
 
 	r.GET("/:id", handlers.RedirectShortLink(db))
 
